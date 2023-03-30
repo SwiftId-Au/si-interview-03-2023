@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using Si.Interview.Web.Api.Services;
 
 namespace Si.Interview.Web.Api
 {
@@ -27,6 +20,10 @@ namespace Si.Interview.Web.Api
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers().SetCompatibilityVersion(CompatibilityVersion.Latest);
+            services.AddSingleton(Configuration);
+            services.AddHttpClient();
+            services.AddSwaggerGen();
+            services.AddScoped<IAsxListedCompaniesService, AsxListedCompaniesService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -34,6 +31,8 @@ namespace Si.Interview.Web.Api
         {
             app.UseRouting();
             app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
+            app.UseSwagger();
+            app.UseSwaggerUI();
         }
     }
 }
