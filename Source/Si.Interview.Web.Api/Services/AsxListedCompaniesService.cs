@@ -37,7 +37,7 @@ namespace Si.Interview.Web.Api.Services
                 {
                     response.EnsureSuccessStatusCode();
 
-                    var result = await ExtractExcelData(response.Content, asxCode);
+                    var result = await ExtractCSVData(response.Content, asxCode);
 
                     return result ?? throw new KeyNotFoundException($"Record having {asxCode} is not found.");
                 }
@@ -48,7 +48,7 @@ namespace Si.Interview.Web.Api.Services
             }
         }
 
-        private async Task<AsxListedCompany> ExtractExcelData(HttpContent content, string asxCode)
+        private async Task<AsxListedCompany> ExtractCSVData(HttpContent content, string asxCode)
         {
             try
             {
