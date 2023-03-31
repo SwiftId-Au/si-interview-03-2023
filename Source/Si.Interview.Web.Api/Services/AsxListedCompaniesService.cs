@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Si.Interview.Web.Api.Constants;
 using Si.Interview.Web.Api.Models;
 using System;
@@ -13,12 +14,15 @@ namespace Si.Interview.Web.Api.Services
 {
     public class AsxListedCompaniesService : IAsxListedCompaniesService
     {
+        private string cacheKey = "AsxListedCompanies-" + DateTime.Today.ToString("yyyyMMdd");
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _memoryCache;
         private readonly HttpClient _httpClient;
 
-        public AsxListedCompaniesService(IConfiguration configuration, HttpClient httpClient)
+        public AsxListedCompaniesService(IConfiguration configuration, IMemoryCache memoryCache, HttpClient httpClient)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(IConfiguration));
+            _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(IMemoryCache));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(HttpClient)); ;
         }
 
@@ -31,15 +35,41 @@ namespace Si.Interview.Web.Api.Services
                     throw new ArgumentNullException($"{nameof(asxCode)} cannot be null.");
                 }
 
+                var result = await GetAsxListedCompaniesAsync();
+
+                return result.FirstOrDefault(x => x.AsxCode == asxCode) ?? throw new KeyNotFoundException($"Record having {asxCode} is not found.");
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        private async Task<List<AsxListedCompany>> GetAsxListedCompaniesAsync()
+        {
+            try
+            {
+                if (_memoryCache.TryGetValue(cacheKey, out List<AsxListedCompany> companies))
+                {
+                    return companies;
+                }
+
                 var url = _configuration.GetValue<string>(AppConstants.AsxURLPath);
 
                 using (var response = await _httpClient.GetAsync(url))
                 {
                     response.EnsureSuccessStatusCode();
 
-                    var result = await ExtractCSVData(response.Content, asxCode);
+                    companies = await ExtractCSVData(response.Content);
 
-                    return result ?? throw new KeyNotFoundException($"Record having {asxCode} is not found.");
+                    var cacheOptions = new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1)
+                    };
+
+                    _memoryCache.Set(cacheKey, companies, cacheOptions);
+
+                    return companies;
                 }
             }
             catch (Exception)
@@ -48,7 +78,7 @@ namespace Si.Interview.Web.Api.Services
             }
         }
 
-        private async Task<AsxListedCompany> ExtractCSVData(HttpContent content, string asxCode)
+        private async Task<List<AsxListedCompany>> ExtractCSVData(HttpContent content)
         {
             try
             {
@@ -74,14 +104,14 @@ namespace Si.Interview.Web.Api.Services
                                 CompanyName = values[0].ToString().Replace("\"", "").Replace("\\", ""),
                                 AsxCode = values[1].ToString().Replace("\"", "").Replace("\\", ""),
                                 GicsIndustryGroup = values[2].ToString().Replace("\"", "").Replace("\\", "")
-                        });
+                            });
                         }
                     }
 
                     currentRow++;
                 }
 
-                return companies.FirstOrDefault(company => company.AsxCode == asxCode);
+                return companies;
             }
             catch (Exception)
             {

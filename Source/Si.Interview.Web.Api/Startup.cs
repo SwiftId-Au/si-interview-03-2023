@@ -23,6 +23,7 @@ namespace Si.Interview.Web.Api
             services.AddSingleton(Configuration);
             services.AddHttpClient();
             services.AddSwaggerGen();
+            services.AddMemoryCache();
             services.AddScoped<IAsxListedCompaniesService, AsxListedCompaniesService>();
         }
 
