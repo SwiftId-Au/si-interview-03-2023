@@ -1,6 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using Si.Interview.Web.Api.Models;
+using System.Threading.Tasks;
 
-namespace Si.Interview.Web.Api
+namespace Si.Interview.Web.Api.Services
 {
     public interface IAsxListedCompaniesService
     {

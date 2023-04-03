@@ -1,4 +1,4 @@
-﻿namespace Si.Interview.Web.Api
+﻿namespace Si.Interview.Web.Api.Models
 {
     public class AsxListedCompanyResponse
     {
