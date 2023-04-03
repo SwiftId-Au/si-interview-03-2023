@@ -1,27 +1,25 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
-using Si.Interview.Web.Api.Constants;
+using Microsoft.Extensions.Options;
+using Si.Interview.Web.Api.Helpers;
 using Si.Interview.Web.Api.Models;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Si.Interview.Web.Api.Services
 {
     public class AsxListedCompaniesService : IAsxListedCompaniesService
     {
-        private string cacheKey = "AsxListedCompanies-" + DateTime.Today.ToString("yyyyMMdd");
-        private readonly IConfiguration _configuration;
+        private string cacheKey = nameof(AsxListedCompaniesService) + DateTime.Today.ToString("yyyyMMdd");
+        private readonly AsxSettings _options;
         private readonly IMemoryCache _memoryCache;
         private readonly HttpClient _httpClient;
 
-        public AsxListedCompaniesService(IConfiguration configuration, IMemoryCache memoryCache, HttpClient httpClient)
+        public AsxListedCompaniesService(IOptions<AsxSettings> options, IMemoryCache memoryCache, HttpClient httpClient)
         {
-            _configuration = configuration ?? throw new ArgumentNullException(nameof(IConfiguration));
+            _options = options?.Value ?? throw new ArgumentNullException(nameof(IOptions<AsxSettings>));
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(IMemoryCache));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(HttpClient)); ;
         }
@@ -54,64 +52,21 @@ namespace Si.Interview.Web.Api.Services
                     return companies;
                 }
 
-                var url = _configuration.GetValue<string>(AppConstants.AsxURLPath);
-
-                using (var response = await _httpClient.GetAsync(url))
+                using (var response = await _httpClient.GetAsync(_options.ListedSecuritiesCsvUrl))
                 {
                     response.EnsureSuccessStatusCode();
 
-                    companies = await ExtractCSVData(response.Content);
+                    companies = await CSVExtractor.ExtractCSVData(response.Content);
 
                     var cacheOptions = new MemoryCacheEntryOptions
                     {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1)
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(_options.CacheDurationInHours)
                     };
 
                     _memoryCache.Set(cacheKey, companies, cacheOptions);
 
                     return companies;
                 }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-
-        private async Task<List<AsxListedCompany>> ExtractCSVData(HttpContent content)
-        {
-            try
-            {
-                var companies = new List<AsxListedCompany>();
-
-                using Stream stream = await content.ReadAsStreamAsync();
-
-                using StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-
-                int currentRow = 1;
-
-                while (!reader.EndOfStream)
-                {
-                    var line = reader.ReadLine();
-                    if (currentRow >= AppConstants.RowStart)
-                    {
-                        var values = line.Split(',');
-
-                        if (values is not null)
-                        {
-                            companies.Add(new AsxListedCompany
-                            {
-                                CompanyName = values[0].ToString().Replace("\"", "").Replace("\\", ""),
-                                AsxCode = values[1].ToString().Replace("\"", "").Replace("\\", ""),
-                                GicsIndustryGroup = values[2].ToString().Replace("\"", "").Replace("\\", "")
-                            });
-                        }
-                    }
-
-                    currentRow++;
-                }
-
-                return companies;
             }
             catch (Exception)
             {

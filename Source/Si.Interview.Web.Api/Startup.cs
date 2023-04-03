@@ -3,7 +3,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Polly;
+using Si.Interview.Web.Api.Models;
 using Si.Interview.Web.Api.Services;
+using System;
+using System.Net.Http;
 
 namespace Si.Interview.Web.Api
 {
@@ -20,10 +24,15 @@ namespace Si.Interview.Web.Api
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers().SetCompatibilityVersion(CompatibilityVersion.Latest);
-            services.AddSingleton(Configuration);
-            services.AddHttpClient();
+
+            services.AddHttpClient(nameof(AsxListedCompaniesService))
+                .AddTransientHttpErrorPolicy(policy =>
+                    policy.WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))))
+                .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(30)));
+
             services.AddSwaggerGen();
             services.AddMemoryCache();
+            services.Configure<AsxSettings>(Configuration.GetSection(nameof(AsxSettings)).Bind);
             services.AddScoped<IAsxListedCompaniesService, AsxListedCompaniesService>();
         }
 
